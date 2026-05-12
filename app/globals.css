@@ -195,7 +195,6 @@ pre code {
 article {
     figure {
         margin-top: 1.75rem;
-        line-height: 0;
     }
 
     .sidenote-content {
