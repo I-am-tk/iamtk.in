@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { SiteShell } from "@/components/site-shell";
 
@@ -8,66 +9,67 @@ export default function Home() {
     return (
         <SiteShell active="about">
             <h1 className="mb-7 font-semibold text-balance text-rurikon-600">
-                Shu Ding
+                TK
             </h1>
             <p className="mt-7">
-                I am a designer and developer at{" "}
+                I am a software engineer with more than three years of
+                experience building for the web. My interests include web
+                development, solving competitive programming problems, and
+                continually learning new ideas in the web development field.
+            </p>
+            <p className="mt-7">
+                I have always been interested in building things for the web,
+                but I started working professionally in 2021, right after my
+                graduation. I joined{" "}
                 <a
                     className={articleLink}
                     draggable={false}
-                    href="https://vercel.com"
+                    href="https://www.quanteon.co/"
                     rel="noopener noreferrer"
                     target="_blank"
                 >
-                    Vercel
+                    Quanteon
                 </a>
-                . My interests span a broad spectrum of subjects, encompassing web
-                development, creative coding, game design, and human-computer
-                interaction.
+                , where I have been working on practical software, product
+                engineering, and the everyday craft of making interfaces reliable,
+                usable, and maintainable.
             </p>
             <p className="mt-7">
-                Since high school, I&apos;ve spent years on algorithm competitions, web
-                design and development. In 2017, I earned my BSc degree in Computer
-                Science from Fudan University in Shanghai, and joined as a software
-                engineer at Microsoft. In 2018, I joined Vercel (ZEIT) to help build
-                the next generation of developer tools including the platform, Next.js,
-                AI SDK, v0, and more.
+                Outside work, I like playing games like PUBG PC, Valorant, and
+                CS. I also enjoy following news related to geopolitics, because
+                I find the way countries, economies, and people shape each other
+                genuinely fascinating.
             </p>
             <p className="mt-7">
-                You can gain further insights into my background and interests through
-                my{" "}
+                You can read more through my{" "}
                 <Link className={articleLink} draggable={false} href="/thoughts">
                     thoughts
-                </Link>
-                ,{" "}
-                <Link className={articleLink} draggable={false} href="/projects">
-                    projects
                 </Link>
                 , find me on{" "}
                 <a
                     className={articleLink}
                     draggable={false}
-                    href="https://github.com/shuding"
-                    rel="noopener noreferrer"
-                    target="_blank"
-                >
-                    GitHub
-                </a>
-                ,{" "}
-                <a
-                    className={articleLink}
-                    draggable={false}
-                    href="https://x.com/shuding"
+                    href="https://x.com/ntikeswar83"
                     rel="noopener noreferrer"
                     target="_blank"
                 >
                     X/Twitter
                 </a>
+                ,{" "}
+                <a
+                    className={articleLink}
+                    draggable={false}
+                    href="https://github.com/I-am-tk"
+                    rel="noopener noreferrer"
+                    target="_blank"
+                >
+                    GitHub
+                </a>
                 , and{" "}
                 <a
                     className={articleLink}
                     draggable={false}
-                    href="https://www.linkedin.com/in/shuding"
+                    href="https://www.linkedin.com/in/tk-naik/"
                     rel="noopener noreferrer"
                     target="_blank"
                 >
@@ -75,6 +77,14 @@ export default function Home() {
                 </a>
                 .
             </p>
+            <Image
+                alt="i_am_TK"
+                className="ml-auto mt-10 h-auto w-28"
+                height={42}
+                src="/i_am_logo.svg"
+                unoptimized
+                width={81}
+            />
         </SiteShell>
     );
 }
