@@ -1,6 +1,6 @@
-import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { Logo } from "@/components/logo";
 
 type SiteShellProps = {
     active: "about" | "thoughts";
@@ -43,17 +43,13 @@ export function SiteShell({ active, children }: SiteShellProps) {
                     <div className="mb-6 flex items-start justify-between gap-6 mobile:sticky mobile:top-6 mobile:mb-0 mobile:block sm:top-10 md:top-14">
                         <Link
                             aria-label="i_am_TK home"
-                            className="flex justify-end w-16 focus-visible:outline focus-visible:outline-rurikon-400 focus-visible:rounded-xs focus-visible:outline-dotted mobile:mb-7 mobile:ml-auto mobile:w-full"
+                            className="group flex w-16 justify-end text-rurikon-500 transition-colors hover:text-[#0048cf] focus-visible:outline focus-visible:outline-rurikon-400 focus-visible:rounded-xs focus-visible:outline-dotted mobile:mb-7 mobile:ml-auto mobile:w-full"
                             draggable={false}
                             href="/"
                         >
-                            <Image
-                                alt="i_am_TK"
-                                className="h-auto w-11"
-                                width={48}
-                                height={48}
-                                src="/Logo.svg"
-                                unoptimized
+                            <Logo
+                                aria-hidden="true"
+                                className="h-auto w-8 [--logo-gradient-end:currentColor] [--logo-gradient-start:var(--background)] [--logo-mark:var(--background)] group-hover:[--logo-gradient-end:#0048cf] group-hover:[--logo-gradient-start:white] group-hover:[--logo-mark:white]"
                             />
                         </Link>
                         <ul className="flex justify-end gap-2 text-right lowercase mobile:block">
