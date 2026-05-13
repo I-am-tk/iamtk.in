@@ -12,11 +12,8 @@ services:
         restart: unless-stopped
         ports:
             - "3000:3000"
-        environment:
-            NODE_ENV: production
-            PORT: "3000"
-            HOSTNAME: 0.0.0.0
-            NEXT_TELEMETRY_DISABLED: "1"
+        env_file:
+            - .env
         read_only: true
         cap_drop:
             - ALL
