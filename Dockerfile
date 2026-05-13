@@ -1,5 +1,6 @@
 ARG NODE_VERSION=24-bookworm-slim
 ARG NODE_MAJOR=24
+ARG NEXT_PUBLIC_GA_ID
 
 FROM node:${NODE_VERSION} AS base
 ENV PNPM_HOME="/pnpm" \
@@ -14,7 +15,9 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile
 
 FROM deps AS builder
+ARG NEXT_PUBLIC_GA_ID
 ENV NODE_ENV="production"
+ENV NEXT_PUBLIC_GA_ID="${NEXT_PUBLIC_GA_ID}"
 COPY . .
 RUN pnpm build \
     && mkdir -p .next/cache  # ← moved here, before distroless stage

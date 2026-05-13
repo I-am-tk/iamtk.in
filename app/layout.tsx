@@ -24,6 +24,8 @@ const mono = localFont({
 });
 
 const googleAnalyticsId = process.env.NEXT_PUBLIC_GA_ID;
+const shouldRenderAnalytics =
+    process.env.NODE_ENV !== "development" && Boolean(googleAnalyticsId);
 
 export const metadata: Metadata = {
     metadataBase: new URL("https://iamtk.in"),
@@ -74,8 +76,8 @@ export default function RootLayout({
                 className={`${sans.variable} ${serif.variable} ${mono.variable} min-h-full flex flex-col antialiased`}
             >
                 {children}
-                {googleAnalyticsId ? (
-                    <GoogleAnalytics gaId={googleAnalyticsId} />
+                {shouldRenderAnalytics ? (
+                    <GoogleAnalytics gaId={googleAnalyticsId as string} />
                 ) : null}
             </body>
         </html>
