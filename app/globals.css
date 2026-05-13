@@ -106,7 +106,7 @@
         var(--mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
         "Liberation Mono", "Courier New", monospace;
     --breakpoint-text: 1220px;
-    --breakpoint-mobile: 420px;
+    --breakpoint-mobile: 700px;
 }
 
 body::selection {
@@ -279,7 +279,7 @@ article {
         background-color 0.2s ease;
 }
 
-@media (width < 420px) {
+@media (max-width: 699.98px) {
     .back-to-top {
         display: flex;
     }
@@ -299,8 +299,12 @@ article {
 }
 
 @supports not (container-type: scroll-state) {
-    .back-to-top {
-        display: none;
+    @media (max-width: 699.98px) {
+        .back-to-top {
+            translate: 0 0;
+            opacity: 1;
+            pointer-events: auto;
+        }
     }
 }
 
