@@ -1,0 +1,303 @@
+---
+title: "Segment Tree"
+publishedAt: "2026.05.13"
+summary: "A segment tree is what you use when a Fenwick tree stops being honest enough: more memory, more machinery, but much more freedom."
+---
+
+# Segment Tree
+
+Some data structures are elegant because they do one thing extremely well.
+
+Fenwick Tree is like that.
+
+Segment Tree is different. It is not elegant in the same minimal way. It is larger, more explicit, and a little heavier. But it earns that extra machinery by being much more general.
+
+That is why it appears everywhere in range-query problems.
+
+If you need:
+
+- range sum
+- range minimum or maximum
+- point update
+- range update
+- some custom merge over intervals
+
+then Segment Tree is usually the first serious tool worth considering.
+
+## The Real Problem
+
+Suppose we have an array and we need to answer many queries on subarrays.
+
+For example:
+
+- sum over `[l, r]`
+- minimum over `[l, r]`
+- maximum over `[l, r]`
+
+and between those queries, the array may also change.
+
+The naive approach gives an awkward tradeoff again.
+
+- A query over `[l, r]` takes `O(n)` in the worst case.
+- A point update takes `O(1)`.
+
+So if we do `n` updates and `n` range queries, the total work is `O(n^2)`.
+
+Segment Tree improves that balance by making both operations `O(log n)`.
+
+More importantly, it does this without restricting us to prefixes. That is the key difference from Fenwick Tree.
+
+Fenwick Tree is built around prefix decomposition.
+
+Segment Tree is built around interval decomposition.
+
+That is the whole idea.
+
+## The Real Idea
+
+A segment tree stores information about intervals.
+
+The root stores information about the whole array.
+
+Then we split the array into two halves:
+
+- left child stores the left half
+- right child stores the right half
+
+And then we keep splitting until each leaf represents a single element.
+
+So if the array is over `[1, 8]`, the tree looks conceptually like this:
+
+- `[1, 8]`
+- `[1, 4]` and `[5, 8]`
+- `[1, 2]`, `[3, 4]`, `[5, 6]`, `[7, 8]`
+- `[1]`, `[2]`, `[3]`, `[4]`, `[5]`, `[6]`, `[7]`, `[8]`
+
+Every node represents a segment. That is why the name is so literal.
+
+In the implementation, we usually store this tree in a plain array, not with heap-allocated node objects. The common convention is to use the root at index `1`, so:
+
+- `tree[1]` is the root
+- `tree[2 * node]` is the left child
+- `tree[2 * node + 1]` is the right child
+
+So the “tree” is conceptual, but the storage is usually linear.
+
+What the node stores depends on the problem:
+
+- for range sum, store the sum of that interval
+- for range minimum, store the minimum of that interval
+- for range maximum, store the maximum of that interval
+
+So a segment tree is not one fixed structure. It is really a pattern:
+
+> recursively divide the array into intervals, and store at each node the merged answer for that interval.
+
+That one sentence explains most of it.
+
+## Why It Works
+
+The power of segment tree comes from one fact:
+
+Any query range can be decomposed into only `O(log n)` disjoint tree segments.
+
+That is the property that makes the whole structure useful.
+
+For example, suppose we query `[2, 7]` in an array of size `8`.
+
+We do **not** scan all values from `2` to `7`.
+
+Instead, the tree lets us cover that interval with a small number of stored segments, such as:
+
+- `[2, 2]`
+- `[3, 4]`
+- `[5, 6]`
+- `[7, 7]`
+
+Those segments are disjoint, and together they cover exactly `[2, 7]`.
+
+That “exactly” matters. No extra elements. No missing elements.
+
+This is the mental move that makes segment trees click: you are not answering the query directly from the array. You are answering it by stitching together a few precomputed interval answers.
+
+## Building the Tree
+
+For a sum segment tree, each node stores the sum of its interval.
+
+Leaves store the array values. Internal nodes store the merge of their two children.
+
+```cpp
+void build(int node, int start, int end) {
+  if (start == end) {
+    tree[node] = A[start];
+  } else {
+    int mid = (start + end) / 2;
+    build(2 * node, start, mid);
+    build(2 * node + 1, mid + 1, end);
+    tree[node] = tree[2 * node] + tree[2 * node + 1];
+  }
+}
+```
+
+This is a bottom-up construction expressed recursively.
+
+First we build smaller segments, then merge them into larger ones, and eventually the root stores the answer for the whole array.
+
+The time complexity of build is `O(n)`.
+
+That often surprises people at first, because the tree has many nodes. But each node is computed once.
+
+## Querying a Range
+
+This is the part that matters most.
+
+When we query `[l, r]`, each node we visit falls into one of three cases:
+
+1. its interval is completely outside `[l, r]`
+2. its interval is completely inside `[l, r]`
+3. its interval partially overlaps `[l, r]`
+
+That gives the standard recursive structure:
+
+```cpp
+int query(int node, int start, int end, int l, int r) {
+  if (r < start || end < l) {
+    return 0;
+  }
+
+  if (l <= start && end <= r) {
+    return tree[node];
+  }
+
+  int mid = (start + end) / 2;
+  int left = query(2 * node, start, mid, l, r);
+  int right = query(2 * node + 1, mid + 1, end, l, r);
+  return left + right;
+}
+```
+
+For sum, the “outside” answer is `0`, because `0` is the identity element for addition.
+
+If this were a minimum segment tree, that value would need to change. That is another good reminder that segment tree is a framework, not a single fixed formula.
+
+The complexity is `O(log n)` for the usual query.
+
+More precisely, we visit only a logarithmic number of relevant nodes, because large parts of the tree are discarded immediately by the “outside” and “inside” checks.
+
+## Updating One Position
+
+If `A[idx]` changes, only the nodes whose intervals contain `idx` need to change.
+
+So we walk from the root to the leaf for `idx`, update that leaf, and then recompute all ancestors on the way back.
+
+```cpp
+void update(int node, int start, int end, int idx, int val) {
+  if (start == end) {
+    A[idx] = val;
+    tree[node] = val;
+  } else {
+    int mid = (start + end) / 2;
+
+    if (idx <= mid) {
+      update(2 * node, start, mid, idx, val);
+    } else {
+      update(2 * node + 1, mid + 1, end, idx, val);
+    }
+
+    tree[node] = tree[2 * node] + tree[2 * node + 1];
+  }
+}
+```
+
+That path has length `O(log n)`, so update is also `O(log n)`.
+
+This is the same big-picture tradeoff we liked in Fenwick Tree, but now it works for much richer kinds of interval queries.
+
+## Why It Feels Heavier Than Fenwick Tree
+
+Because it is.
+
+Fenwick Tree hides its structure inside bit arithmetic.
+
+Segment Tree exposes the structure directly:
+
+- explicit intervals
+- explicit left and right children
+- explicit merge logic
+- explicit overlap handling
+
+That makes the code longer, but it also makes the structure more honest.
+
+You can see exactly why a query works. You can change what a node stores. You can add lazy propagation later. You can turn the merge from `sum` into `min`, `max`, `gcd`, or something more custom.
+
+This is why segment tree is such a common contest tool: it scales better as the problem becomes more specific.
+
+## Where People Get Confused
+
+There are a few predictable confusions.
+
+First: people memorize the code before they understand the three overlap cases. That usually leads to bugs. The query logic is not arbitrary. It is just case analysis on interval intersection.
+
+Second: people think the tree must be represented as actual heap-allocated nodes. It does not. In contests, it is usually stored in an array like `tree[4 * n]`, usually with the root at `tree[1]`, left child at `tree[2 * node]`, and right child at `tree[2 * node + 1]`.
+
+Third: people overfocus on the exact number of nodes. In practice, `4 * n` is the common safe allocation. It is not the most beautiful constant, but it keeps the implementation simple.
+
+## Why It Is So Useful
+
+The segment tree earns its place because it is a clean abstraction for interval information.
+
+It does not just solve one problem. It solves a family of problems:
+
+- point update + range query
+- range update + point query
+- range update + range query with lazy propagation
+- order statistics on top of frequency data
+- custom interval merges
+
+This is where it separates itself from Fenwick Tree. Fenwick Tree is narrower and cleaner. Segment Tree is broader and more adaptable.
+
+So if Fenwick Tree feels like a sharp tool, Segment Tree feels like a toolkit.
+
+## Limits
+
+Segment Tree is not free.
+
+Compared to Fenwick Tree:
+
+- code is longer
+- memory usage is larger
+- constants are worse
+- implementation mistakes are more common
+
+So if the problem is only:
+
+- point update
+- prefix sum or range sum
+
+then Fenwick Tree is often the better choice.
+
+But once the problem asks for more structural freedom, segment tree starts to justify itself very quickly.
+
+## The Right Mental Model
+
+If I had to explain Segment Tree in one paragraph, I would say:
+
+> It is a binary decomposition of the array into intervals, where each node stores the merged answer for its interval, so a range query can be answered by combining a small number of interval answers.
+
+Everything else follows from this.
+
+- Build: compute interval answers bottom-up.
+- Query: combine fully covered intervals.
+- Update: fix one leaf, then recompute its ancestors.
+
+That is the whole structure.
+
+## Final Thought
+
+I like segment tree for the opposite reason I like Fenwick tree.
+
+Fenwick tree feels clever because it compresses a lot of structure into one tiny invariant.
+
+Segment tree feels good because it does not compress too much. It shows its structure openly. Every node means an interval. Every query is just overlap logic. Every update is just fixing one root-to-leaf path.
+
+It is bigger, but it is also easier to trust once you actually understand what it is doing.
