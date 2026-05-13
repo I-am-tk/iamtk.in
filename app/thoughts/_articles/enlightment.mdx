@@ -100,7 +100,7 @@ And here is the complete solution:
 ```js
 const occurrences = {};
 for (let i = 0; i < N; i++) {
-  occurrences[i] = 0;
+    occurrences[i] = 0;
 }
 
 let count = 0;
@@ -111,40 +111,41 @@ const result = [];
 for (let i = 0; i < queries.length; i++) {
 const query = queries[i];
 
-// Move the left boundary to the left of the new query
-while (left < query.left) {
-if (occurrences[list[left]] === 1) {
-count--;
-}
-occurrences[list[left]]--;
-left++;
-}
+    // Move the left boundary to the left of the new query
+    while (left < query.left) {
+        if (occurrences[list[left]] === 1) {
+            count--;
+        }
+        occurrences[list[left]]--;
+        left++;
+    }
 
-// Move the right boundary to the right of the new query
-// Note that the right boundary isn't sorted, so we could
-// move in both directions
-while (right < query.right) {
-right++;
-if (occurrences[list[right]] === 0) {
-count++;
-}
-occurrences[list[right]]++;
-}
-while (right > query.right) {
-if (occurrences[list[right]] === 1) {
-count--;
-}
-occurrences[list[right]]--;
-right--;
-}
+    // Move the right boundary to the right of the new query
+    // Note that the right boundary isn't sorted, so we could
+    // move in both directions
+    while (right < query.right) {
+        right++;
+        if (occurrences[list[right]] === 0) {
+            count++;
+        }
+        occurrences[list[right]]++;
+    }
+    while (right > query.right) {
+        if (occurrences[list[right]] === 1) {
+            count--;
+        }
+        occurrences[list[right]]--;
+        right--;
+    }
 
-// Record the result of that specific query
-result[query.index] = count;
+    // Record the result of that specific query
+    result[query.index] = count;
+
 }
 
 // Print the results in the original order of the queries
 for (let i = 0; i < result.length; i++) {
-console.log(result[i]);
+    console.log(result[i]);
 }
 
 ```
