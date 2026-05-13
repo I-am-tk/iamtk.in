@@ -1,0 +1,226 @@
+---
+title: "Binary Indexed Tree"
+publishedAt: "2026.05.13"
+summary: "A Fenwick tree looks like a bit trick, but the real idea is much simpler: store partial sums in blocks whose sizes are determined by the last set bit."
+---
+
+# Binary Indexed Tree
+
+Some data structures feel much more complicated than they really are because of notation.
+
+Binary Indexed Tree, or Fenwick Tree, is one of them.
+
+The first time you see it, it looks like magic: `idx & -idx`, mysterious parent jumps, prefix sums appearing from nowhere. But the core idea is actually very small. It is just a way to store prefix information in overlapping power-of-two blocks, so both update and query stay logarithmic.
+
+That is why this structure keeps showing up in contests. It solves one very common problem extremely well:
+
+- update one position
+- query a prefix sum
+
+And from that, you also get range sums:
+
+$$
+\operatorname{sum}(l, r) = \operatorname{prefix}(r) - \operatorname{prefix}(l - 1)
+$$
+
+If all you need is that, Fenwick Tree is usually the cleanest tool.
+
+## The Real Idea
+
+Suppose we have an array:
+
+<BlockSideTitle title="The indices are 1-based here, and the Fenwick tree is built on top of this underlying array.">
+  <img
+    alt="An array with 1-based indices 1 through 8 and values 2, 1, 3, 4, 5, 2, 1, and 6."
+    src="bit-array.png"
+  />
+</BlockSideTitle>
+
+The naive way to answer `sum(1, r)` is to add everything from `1` to `r`, which takes `O(n)` in the worst case. The naive way to support updates is to change the element directly, which is `O(1)`. The problem is that this gives us an asymmetric tradeoff: updates are cheap, but queries are not. Fenwick Tree improves that balance by making both operations `O(log n)`.
+
+For example, if we perform `n` point updates and `n` prefix-sum queries, the naive total cost is `n * O(1) + n * O(n) = O(n^2)`. With a Fenwick Tree, the same workload becomes `n * O(log n) + n * O(log n) = O(n log n)`.
+
+Fenwick Tree does this by giving each position `i` responsibility for a small suffix ending at `i`.
+
+The size of that suffix is determined by the last set bit of `i`.
+
+For example:
+
+- `tree[1]` stores 1 value
+- `tree[2]` stores 2 values
+- `tree[4]` stores 4 values
+- `tree[6]` stores 2 values
+- `tree[8]` stores 8 values
+
+<figure>
+  <img
+    alt="A chart of Binary Indexed Tree ranges for indices 1 through 8, showing that BIT[1] covers 1, BIT[2] covers 1 through 2, BIT[3] covers 3, BIT[4] covers 1 through 4, BIT[5] covers 5, BIT[6] covers 5 through 6, BIT[7] covers 7, and BIT[8] covers 1 through 8."
+    src="bit-ranges.png"
+  />
+  <figcaption>
+    Each <code>tree[i]</code> stores a contiguous block ending at <code>i</code>, with length <code>lowbit(i)</code>.
+  </figcaption>
+</figure>
+
+So `tree[i]` does **not** store `arr[i]`. It stores the sum of the last `lowbit(i)` elements ending at `i`.
+
+For example:
+
+- `tree[1] = arr[1]`
+- `tree[2] = arr[1] + arr[2]`
+- `tree[6] = arr[5] + arr[6]`
+- `tree[8] = arr[1] + arr[2] + ... + arr[8]`
+
+That one sentence is the whole data structure.
+
+## Why `idx & -idx` Works
+
+The function usually called `lowbit` is:
+
+```cpp
+int lowbit(int x) {
+  return x & -x;
+}
+```
+
+It isolates the least significant set bit.
+
+Examples:
+
+- `lowbit(6 = 110₂) = 2 = 10₂`
+- `lowbit(12 = 1100₂) = 4 = 100₂`
+- `lowbit(8 = 1000₂) = 8 = 1000₂`
+
+This gives the block size for `tree[i]`.
+
+So:
+
+- `tree[6]` stores the sum over `[5, 6]`, because `lowbit(6) = 2`, so the block has length 2 and starts at `6 - 2 + 1 = 5`
+- `tree[12]` stores the sum over `[9, 12]`
+- `tree[8]` stores the sum over `[1, 8]`
+
+At that point the query logic becomes almost obvious.
+
+## Reading a Prefix Sum
+
+To compute the sum from `1` to `idx`, we keep taking the block that ends at `idx`, then jump left by that block size.
+
+```cpp
+int query(int idx) {
+  int sum = 0;
+  while (idx > 0) {
+    sum += tree[idx];
+    idx -= idx & -idx;
+  }
+  return sum;
+}
+```
+
+<figure>
+  <img
+    alt="A Binary Indexed Tree traversal diagram for i equals 6, highlighting BIT[6] and BIT[4] and showing that subtracting lowbit moves the query from index 6 to index 4."
+    src="bit-query-traversal.png"
+  />
+  <figcaption>
+    We move by index, not by stored value. For example, starting at <code>i = 6</code>, we read <code>tree[6]</code> and then jump to <code>4</code> by subtracting <code>lowbit(6)</code>.
+  </figcaption>
+</figure>
+
+Why does this work? Because these blocks partition the prefix perfectly.
+
+Take `idx = 6`:
+
+- first use the block ending at `6`
+- then jump to `4`
+- then use the block ending at `4`
+- then jump to `0`
+
+So the prefix is decomposed into a few non-overlapping chunks. Each jump removes one set bit. That is why the loop is logarithmic.
+
+This is the part I like most about Fenwick Tree: the bit trick is not some optimization layered on top of the structure. The bit trick **is** the structure.
+
+## Updating a Position
+
+Now suppose `a[idx] += delta`.
+
+Which `tree` entries should change? Exactly the ones whose covered interval includes `idx`.
+
+Fenwick Tree gives a very compact way to enumerate them:
+
+```cpp
+void update(int idx, int delta, int n) {
+  while (idx <= n) {
+    tree[idx] += delta;
+    idx += idx & -idx;
+  }
+}
+```
+
+This loop walks “upward” through larger and larger blocks that still contain the index.
+
+That symmetry is what makes the structure elegant:
+
+- query moves backward by subtracting `lowbit`
+- update moves forward by adding `lowbit`
+
+Once you see that, the implementation is hard to forget.
+
+## Why It Feels Better Than a Segment Tree
+
+A segment tree is more general. It supports more shapes of queries and is often easier to extend with lazy propagation, custom merges, or range updates.
+
+But if the problem is just:
+
+- point update
+- prefix sum or range sum
+
+Fenwick Tree is often better.
+
+It has a few nice properties:
+
+- the code is tiny
+- the memory is linear, usually just one array
+- constants are small
+- the implementation is harder to get wrong under contest pressure
+
+That last point matters. There are data structures that are theoretically simple but practically fragile. Fenwick Tree is the opposite. Once the indexing is right, it tends to stay right.
+
+## Where People Get Confused
+
+There are two common sources of confusion.
+
+First: it is usually written with 1-based indexing. That feels annoying at first, but it makes the bit arithmetic clean. You can implement 0-based variants, but the standard 1-based version is easier to reason about.
+
+Second: `tree[i]` is not a node in the way people imagine a tree node. The “tree” here is really implicit. What you store is just an array, and the parent/child relations come from index arithmetic. If you expect a visible binary tree like a segment tree, the structure feels more mysterious than it is.
+
+I think the name “Fenwick Tree” is actually less misleading than “Binary Indexed Tree”. The latter sounds like some exotic bit-indexing trick, while the former nudges you to treat it as a specific representation with its own rules.
+
+## The Right Mental Model
+
+If I had to explain Fenwick Tree in one paragraph, I would say:
+
+> It is a prefix-sum structure where position `i` stores the sum of a block ending at `i`, and the size of that block is the value of the least significant set bit of `i`.
+
+Everything else follows from this.
+
+- Query a prefix: keep removing the last set bit.
+- Update a point: keep adding the last set bit.
+- Range sum: subtract two prefixes.
+
+That is all.
+
+## Limits
+
+Fenwick Tree is not a universal replacement for segment trees.
+
+It is best when the operation behaves nicely with prefix decomposition, especially for sums and frequencies. It is also great for coordinate-compressed counting problems: inversions, order statistics, offline sweeps, counting how many values are `<= x`, and so on.
+
+But once the problem becomes more structural, the elegance starts to fade. If you need arbitrary range minimum with updates, complicated lazy operations, or rich per-segment state, segment trees are usually the more honest tool.
+
+Fenwick Tree wins by being narrow.
+
+## Final Thought
+
+I like Binary Indexed Tree because it is one of those rare contest data structures that feels both clever and justified.
+
+It does not hide complexity behind a giant template. It gives you one compact invariant, and then everything else is just movement through binary representation. That makes it a very good example of what elegant algorithm design looks like: not more machinery, just the right encoding.
