@@ -35,6 +35,8 @@ const withMDX = createMDX({
                     theme: shikiTheme,
                     langs: [
                         "bash",
+                        "c",
+                        "cpp",
                         "csharp",
                         "css",
                         "html",
@@ -43,6 +45,7 @@ const withMDX = createMDX({
                         "jsx",
                         "markdown",
                         "mdx",
+                        "plaintext",
                         "shell",
                         "shellscript",
                         "tsx",
