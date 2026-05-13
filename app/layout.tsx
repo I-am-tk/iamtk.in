@@ -47,6 +47,7 @@ export default function RootLayout({
 }`}</style>
             </head>
             <body
+                id="top"
                 className={`${sans.variable} ${serif.variable} ${mono.variable} min-h-full flex flex-col antialiased`}
             >
                 {children}

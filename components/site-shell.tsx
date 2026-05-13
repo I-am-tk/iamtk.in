@@ -75,6 +75,18 @@ export function SiteShell({ active, children }: SiteShellProps) {
                     </ViewTransition>
                 </main>
             </div>
+            <a aria-label="Back to top" className="back-to-top" href="#top">
+                <svg
+                    aria-hidden="true"
+                    fill="currentColor"
+                    height="24"
+                    viewBox="0 0 256 256"
+                    width="24"
+                    xmlns="http://www.w3.org/2000/svg"
+                >
+                    <path d="M205.66,117.66a8,8,0,0,1-11.32,0L136,59.31V216a8,8,0,0,1-16,0V59.31L61.66,117.66a8,8,0,0,1-11.32-11.32l72-72a8,8,0,0,1,11.32,0l72,72A8,8,0,0,1,205.66,117.66Z" />
+                </svg>
+            </a>
         </div>
     );
 }

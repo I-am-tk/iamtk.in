@@ -145,6 +145,11 @@ body {
     -webkit-tap-highlight-color: transparent;
 }
 
+html {
+    container-type: scroll-state;
+    container-name: scroller;
+}
+
 i,
 em,
 blockquote,
@@ -185,11 +190,21 @@ code {
 pre {
     --shiki-background: #f7f7f7;
     --shiki-foreground: #414141;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 pre code {
     --shiki-foreground: #414141;
     padding: 0;
+}
+
+.katex-display {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
 }
 
 article {
@@ -237,6 +252,50 @@ article {
     background-position: right center;
     background-repeat: repeat-x;
     background-size: 10px 100%;
+}
+
+.back-to-top {
+    position: fixed;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    z-index: 40;
+    display: flex;
+    width: 2.75rem;
+    height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid hsl(215deg 16% 45% / 45%);
+    border-radius: 9999px;
+    background-color: hsl(215deg 16% 20% / 55%);
+    color: #fff;
+    text-decoration: none;
+    box-shadow: 0 3px 12px hsl(215deg 24% 8% / 30%);
+    translate: 4rem 0;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+        translate 0.28s ease,
+        opacity 0.2s ease,
+        background-color 0.2s ease;
+}
+
+.back-to-top:hover,
+.back-to-top:focus-visible {
+    background-color: hsl(215deg 16% 20% / 75%);
+}
+
+@container scroller scroll-state(scrollable: top) {
+    .back-to-top {
+        translate: 0 0;
+        opacity: 1;
+        pointer-events: auto;
+    }
+}
+
+@supports not (container-type: scroll-state) {
+    .back-to-top {
+        display: none;
+    }
 }
 
 @supports (view-transition-name: none) {

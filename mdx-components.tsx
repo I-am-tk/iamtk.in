@@ -200,7 +200,7 @@ const components = {
     pre: ({ className, ...props }: ComponentPropsWithoutRef<"pre">) => (
         <pre
             className={cx(
-                "mt-7 py-3.5 px-4 whitespace-pre md:whitespace-pre-wrap",
+                "mt-7 py-3.5 px-4 whitespace-pre md:whitespace-pre-wrap max-w-full overflow-x-auto",
                 className,
             )}
             {...props}
