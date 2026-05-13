@@ -1,0 +1,31 @@
+services:
+    web:
+        build:
+            args:
+                NODE_VERSION: 24-bookworm-slim
+                NODE_MAJOR: 24
+            context: .
+            dockerfile: Dockerfile
+            target: runner
+        image: iamtk-in:latest
+        init: true
+        restart: unless-stopped
+        ports:
+            - "3000:3000"
+        environment:
+            NODE_ENV: production
+            PORT: "3000"
+            HOSTNAME: 0.0.0.0
+            NEXT_TELEMETRY_DISABLED: "1"
+        read_only: true
+        cap_drop:
+            - ALL
+        security_opt:
+            - no-new-privileges:true
+        tmpfs:
+            - /tmp
+        volumes:
+            - next-cache:/app/.next/cache
+
+volumes:
+    next-cache:

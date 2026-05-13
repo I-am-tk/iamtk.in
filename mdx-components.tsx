@@ -200,7 +200,7 @@ const components = {
     pre: ({ className, ...props }: ComponentPropsWithoutRef<"pre">) => (
         <pre
             className={cx(
-                "mt-7 p-3.5 p-4 whitespace-pre md:whitespace-pre-wrap",
+                "mt-7 py-3.5 px-4 whitespace-pre md:whitespace-pre-wrap",
                 className,
             )}
             {...props}
@@ -272,10 +272,7 @@ const components = {
         return (
             // eslint-disable-next-line @next/next/no-img-element -- MDX image nodes do not reliably provide dimensions for next/image.
             <img
-                className={cx(
-                    "mt-7 border border-rurikon-border bg-(--frame-background,#fff) p-(--frame-padding,0.875rem)",
-                    className,
-                )}
+                className={cx("mt-7", className)}
                 alt={alt ?? ""}
                 src={resolvedSrc}
                 {...props}
