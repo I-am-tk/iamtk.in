@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { ViewTransition } from "react";
 import { Logo } from "@/components/logo";
 
 type SiteShellProps = {
@@ -67,9 +68,11 @@ export function SiteShell({ active, children }: SiteShellProps) {
                 </nav>
                 <main className="relative max-w-2xl flex-1 contain-[inline-size]">
                     <div className="absolute right-0 h-px w-full bg-rurikon-border opacity-50 mix-blend-multiply mobile:left-0 mobile:right-auto mobile:h-full mobile:w-px mobile:opacity-100" />
-                    <article className="pl-0 pt-6 mobile:pl-6 mobile:pt-0 sm:pl-10 md:pl-14">
-                        {children}
-                    </article>
+                    <ViewTransition name="crossfade">
+                        <article className="pl-0 pt-6 mobile:pl-6 mobile:pt-0 sm:pl-10 md:pl-14">
+                            {children}
+                        </article>
+                    </ViewTransition>
                 </main>
             </div>
         </div>

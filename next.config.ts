@@ -14,6 +14,9 @@ const nextConfig: NextConfig = {
     pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"],
     output: "standalone",
     outputFileTracingRoot: process.cwd(),
+    experimental: {
+        viewTransition: true,
+    },
     turbopack: {
         root: process.cwd(),
     },
