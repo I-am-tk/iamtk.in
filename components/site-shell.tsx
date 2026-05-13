@@ -44,7 +44,7 @@ export function SiteShell({ active, children }: SiteShellProps) {
                     <div className="mb-6 flex items-start justify-between gap-6 mobile:sticky mobile:top-6 mobile:mb-0 mobile:block sm:top-10 md:top-14">
                         <Link
                             aria-label="i_am_TK home"
-                            className="group flex w-16 justify-end text-rurikon-500 transition-colors hover:text-[#0048cf] focus-visible:outline focus-visible:outline-rurikon-400 focus-visible:rounded-xs focus-visible:outline-dotted mobile:mb-7 mobile:ml-auto mobile:w-full"
+                            className="group flex justify-end text-rurikon-500 transition-colors hover:text-[#0048cf] focus-visible:outline focus-visible:outline-rurikon-400 focus-visible:rounded-xs focus-visible:outline-dotted mobile:mb-7 mobile:ml-auto mobile:w-full"
                             draggable={false}
                             href="/"
                         >
