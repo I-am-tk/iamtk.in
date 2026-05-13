@@ -25,7 +25,27 @@ const mono = localFont({
 export const metadata: Metadata = {
     metadataBase: new URL("https://iamtk.in"),
     title: "i_am_TK",
-    description: "I am TK",
+    description:
+        "Software engineer with 3+ years of experience building for the web.",
+    openGraph: {
+        type: "website",
+        url: "https://iamtk.in/",
+        title: "i_am_TK",
+        description:
+            "Software engineer with 3+ years of experience building for the web.",
+        images: [
+            {
+                url: "/open-graph-image.jpeg",
+            },
+        ],
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "i_am_TK",
+        description:
+            "Software engineer with 3+ years of experience building for the web.",
+        images: ["/open-graph-image.jpeg"],
+    },
 };
 
 export const viewport: Viewport = {

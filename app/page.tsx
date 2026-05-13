@@ -19,7 +19,7 @@ export default function Home() {
             </p>
             <p className="mt-7">
                 I have always been interested in building things for the web,
-                but I started working professionally in 2021, right after my
+                but I started working professionally in 2022, right after my
                 graduation. I joined{" "}
                 <a
                     className={articleLink}
