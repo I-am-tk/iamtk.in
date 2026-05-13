@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,8 @@ const mono = localFont({
     preload: true,
     variable: "--mono",
 });
+
+const googleAnalyticsId = process.env.NEXT_PUBLIC_GA_ID;
 
 export const metadata: Metadata = {
     metadataBase: new URL("https://iamtk.in"),
@@ -71,6 +74,9 @@ export default function RootLayout({
                 className={`${sans.variable} ${serif.variable} ${mono.variable} min-h-full flex flex-col antialiased`}
             >
                 {children}
+                {googleAnalyticsId ? (
+                    <GoogleAnalytics gaId={googleAnalyticsId} />
+                ) : null}
             </body>
         </html>
     );
