@@ -1,0 +1,320 @@
+---
+title: "On CSRF"
+publishedAt: "2026.05.18"
+summary: "CSRF is the attack where your own browser becomes the weapon. No code injection. No vulnerability in your site. Just a browser doing exactly what it was designed to do."
+---
+# On CSRF
+
+XSS and HTML injection attack the victim from inside your site. An attacker finds a way to put malicious content onto your pages, and the victim's browser runs it within the context of your domain.
+
+CSRF is different in one important way.
+
+The attacker never touches your site. They do not inject anything. They do not need a vulnerability in your codebase at all. They just need the victim to visit a page they control — and the browser does the rest.
+
+## The Mechanism
+
+To understand CSRF, you need to understand one specific thing about how browsers handle cookies.
+
+When a browser makes a request to a domain — any request, for any reason — it automatically attaches all the cookies it has stored for that domain. This is by design. It is how session-based authentication works. You log in, the server sets a session cookie, and from then on every request you make carries that cookie. You stay logged in.
+
+The problem is that "any request" means any request. Including ones you did not initiate.
+
+If you visit `evil.com` and that page contains a hidden form targeting `bank.com`, and that form submits automatically, your browser will fire a POST to `bank.com` — and attach your `bank.com` session cookie. The server receives an authenticated request. It sees a valid session. It has no idea the request originated from `evil.com`.
+
+That is CSRF. The browser did not do anything wrong. The server did not do anything wrong. The design assumption — that an authenticated request must mean an intentional one — was wrong.
+
+## A Concrete Example
+
+Alice is logged into her bank. Somewhere else on the internet, she clicks a link that says "You won a free iPhone." The page at `evil.com` looks like a prize claim page. She sees a loading spinner. Nothing obvious happens.
+
+What actually happens is this. The page contains a hidden form:
+
+```html
+<body onload="document.forms[0].submit()">
+  <form action="https://bank.com/transfer"
+        method="POST"
+        style="display:none">
+    <input name="to"     value="attacker@evil.com">
+    <input name="amount" value="9000">
+  </form>
+</body>
+```
+
+The moment the page loads, `onload` fires and the form submits. Alice clicked nothing on the bank site. She authorized nothing. But her browser sends a POST to `bank.com/transfer` — with her session cookie attached, because that is what browsers do.
+
+The bank's transfer endpoint checks the session. It is valid. Alice is logged in. It processes the transfer.
+
+<svg width="100%" viewBox="0 0 680 510" role="img" xmlns="http://www.w3.org/2000/svg" fontFamily="inherit">
+  <title>How CSRF uses the victim's browser to attack bank.com</title>
+  <desc>Four-step flow: attacker crafts evil page, victim visits and browser auto-fires the form, bank.com receives an authenticated request it cannot distinguish from a real one, transfer is processed</desc>
+  <defs>
+    <marker id="csrf-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </marker>
+  </defs>
+
+  <text x="340" y="28" textAnchor="middle" fill="#8c95a1" fontSize="12">step 1 — attacker hosts a page with a hidden form targeting bank.com</text>
+
+  <rect x="30" y="40" width="110" height="56" rx="8" fill="#fef2f2" stroke="#b33535" strokeWidth="0.5"/>
+  <text x="85" y="60" textAnchor="middle" dominantBaseline="central" fill="#7f1d1d" fontSize="14" fontWeight="500">Attacker</text>
+  <text x="85" y="78" textAnchor="middle" dominantBaseline="central" fill="#b33535" fontSize="12">crafts evil page</text>
+
+  <line x1="140" y1="68" x2="164" y2="68" stroke="#8c95a1" strokeWidth="1.5" markerEnd="url(#csrf-arrow)"/>
+
+  <rect x="166" y="40" width="288" height="56" rx="8" fill="none" stroke="#b33535" strokeWidth="0.5" strokeDasharray="4 3"/>
+  <text x="182" y="59" dominantBaseline="central" fontFamily="monospace" fontSize="12" fill="#7f2828">&lt;form action="bank.com/transfer"</text>
+  <text x="182" y="77" dominantBaseline="central" fontFamily="monospace" fontSize="12" fill="#7f2828">  onload="submit()"&gt; [hidden]</text>
+
+  <line x1="454" y1="68" x2="486" y2="68" stroke="#8c95a1" strokeWidth="1.5" markerEnd="url(#csrf-arrow)"/>
+
+  <rect x="488" y="40" width="152" height="56" rx="8" fill="#ebedef" stroke="#8c95a1" strokeWidth="0.5"/>
+  <text x="564" y="60" textAnchor="middle" dominantBaseline="central" fill="#3b4149" fontSize="14" fontWeight="500">evil.com</text>
+  <text x="564" y="78" textAnchor="middle" dominantBaseline="central" fill="#697381" fontSize="12">hosts the page</text>
+
+  <line x1="30" y1="118" x2="650" y2="118" stroke="#d8dbdf" strokeWidth="0.5" strokeDasharray="4 3"/>
+  <text x="340" y="136" textAnchor="middle" fill="#8c95a1" fontSize="12">step 2 — victim visits. browser auto-fires the form. session cookie attaches.</text>
+
+  <rect x="30" y="150" width="110" height="56" rx="8" fill="#edf7f2" stroke="#1a7a52" strokeWidth="0.5"/>
+  <text x="85" y="170" textAnchor="middle" dominantBaseline="central" fill="#0f4f3d" fontSize="14" fontWeight="500">Victim</text>
+  <text x="85" y="188" textAnchor="middle" dominantBaseline="central" fill="#1a7a52" fontSize="12">visits evil.com</text>
+
+  <line x1="140" y1="178" x2="234" y2="178" stroke="#8c95a1" strokeWidth="1.5" markerEnd="url(#csrf-arrow)"/>
+
+  <rect x="236" y="150" width="140" height="56" rx="8" fill="#edf7f2" stroke="#1a7a52" strokeWidth="0.5"/>
+  <text x="306" y="170" textAnchor="middle" dominantBaseline="central" fill="#0f4f3d" fontSize="14" fontWeight="500">Browser</text>
+  <text x="306" y="188" textAnchor="middle" dominantBaseline="central" fill="#1a7a52" fontSize="12">loads the page</text>
+
+  <text x="424" y="168" textAnchor="middle" fill="#697381" fontSize="12">cookie auto-attached</text>
+  <line x1="376" y1="178" x2="474" y2="178" stroke="#b33535" strokeWidth="1.5" markerEnd="url(#csrf-arrow)"/>
+
+  <rect x="476" y="150" width="154" height="56" rx="8" fill="#fef2f2" stroke="#b33535" strokeWidth="0.5"/>
+  <text x="553" y="170" textAnchor="middle" dominantBaseline="central" fill="#7f1d1d" fontSize="14" fontWeight="500">POST /transfer</text>
+  <text x="553" y="188" textAnchor="middle" dominantBaseline="central" fill="#b33535" fontSize="12">with session cookie</text>
+
+  <line x1="30" y1="228" x2="650" y2="228" stroke="#d8dbdf" strokeWidth="0.5" strokeDasharray="4 3"/>
+  <text x="340" y="246" textAnchor="middle" fill="#8c95a1" fontSize="12">step 3 — bank.com receives a valid authenticated request. no csrf check.</text>
+
+  <rect x="30" y="260" width="130" height="56" rx="8" fill="#ebedef" stroke="#8c95a1" strokeWidth="0.5"/>
+  <text x="95" y="280" textAnchor="middle" dominantBaseline="central" fill="#3b4149" fontSize="14" fontWeight="500">bank.com</text>
+  <text x="95" y="298" textAnchor="middle" dominantBaseline="central" fill="#697381" fontSize="12">reads session ✓</text>
+
+  <line x1="160" y1="288" x2="194" y2="288" stroke="#8c95a1" strokeWidth="1.5" markerEnd="url(#csrf-arrow)"/>
+
+  <rect x="196" y="260" width="240" height="56" rx="8" fill="#fef2f2" stroke="#b33535" strokeWidth="0.5" strokeDasharray="4 3"/>
+  <text x="212" y="279" dominantBaseline="central" fontFamily="monospace" fontSize="12" fill="#7f2828">session: valid ✓</text>
+  <text x="212" y="297" dominantBaseline="central" fontFamily="monospace" fontSize="12" fill="#7f2828">csrf token: (never checked)</text>
+
+  <line x1="436" y1="288" x2="492" y2="288" stroke="#b33535" strokeWidth="1.5" markerEnd="url(#csrf-arrow)"/>
+
+  <rect x="494" y="260" width="146" height="56" rx="8" fill="#fef2f2" stroke="#b33535" strokeWidth="0.5"/>
+  <text x="567" y="280" textAnchor="middle" dominantBaseline="central" fill="#7f1d1d" fontSize="14" fontWeight="500">Transfer</text>
+  <text x="567" y="298" textAnchor="middle" dominantBaseline="central" fill="#b33535" fontSize="12">processed: ₹9,000</text>
+
+  <line x1="30" y1="338" x2="650" y2="338" stroke="#d8dbdf" strokeWidth="0.5" strokeDasharray="4 3"/>
+  <text x="340" y="356" textAnchor="middle" fill="#8c95a1" fontSize="12">step 4 — bank logs a legitimate request. victim sees nothing unusual.</text>
+
+  <rect x="30" y="370" width="406" height="44" rx="8" fill="none" stroke="#b33535" strokeWidth="0.5" strokeDasharray="4 3"/>
+  <text x="46" y="386" dominantBaseline="central" fontFamily="monospace" fontSize="12" fill="#7f2828">POST /transfer • to=attacker@evil.com • amount=9000</text>
+  <text x="46" y="404" dominantBaseline="central" fill="#697381" fontSize="12">(logged as Alice's voluntary action — indistinguishable from a real one)</text>
+
+  <line x1="436" y1="392" x2="488" y2="392" stroke="#b33535" strokeWidth="1.5" markerEnd="url(#csrf-arrow)"/>
+
+  <rect x="490" y="370" width="150" height="44" rx="8" fill="#fef2f2" stroke="#b33535" strokeWidth="0.5"/>
+  <text x="565" y="386" textAnchor="middle" dominantBaseline="central" fill="#7f1d1d" fontSize="14" fontWeight="500">Attacker</text>
+  <text x="565" y="404" textAnchor="middle" dominantBaseline="central" fill="#b33535" fontSize="12">receives funds</text>
+
+  <rect x="30" y="434" width="620" height="56" rx="8" fill="#fefcf0" stroke="#9a7020" strokeWidth="0.5"/>
+  <text x="46" y="452" dominantBaseline="central" fill="#5a4010" fontSize="12" fontWeight="500">The key distinction:</text>
+  <text x="46" y="468" dominantBaseline="central" fill="#5a4010" fontSize="12">Authentication confirms who you are. It says nothing about whether you meant to make this request.</text>
+  <text x="46" y="482" dominantBaseline="central" fill="#5a4010" fontSize="12">CSRF tokens restore that missing signal — proof the request came from your own page.</text>
+</svg>
+
+The server logged a legitimate authenticated request. Alice's balance dropped. The attacker's account received the funds. Alice has no idea anything happened.
+
+## A Real Incident: Gmail (2007)
+
+In 2007, Gmail had a CSRF vulnerability in the endpoint that created email filters.
+
+An attacker could craft a page that, when visited by a logged-in Gmail user, would silently create a filter in their account — one that forwarded copies of all incoming email to the attacker's address. No login prompt. No confirmation dialog. The victim just had to visit a page while logged into Gmail.
+
+The attack became public in part through David Airey, a web designer who found his domain had been hijacked. An attacker had captured a domain transfer confirmation email by forwarding his Gmail. The damage unfolded silently, without Airey ever visiting any suspicious Gmail page. His only mistake was visiting a webpage while logged in.
+
+Google fixed the vulnerability after it was publicized. The episode remains a clean illustration of what makes CSRF dangerous: the victim's only error was being logged into Gmail while browsing the internet — something billions of people do continuously.
+
+## Three Attack Vectors
+
+The hidden form is the classic version, but CSRF takes different shapes depending on what the endpoint accepts.
+
+**GET endpoints** are the simplest to exploit. If a state-changing action accepts a GET request, a single broken image tag is enough:
+
+```html
+<img src="https://bank.com/transfer?to=attacker&amount=9000"
+     style="display:none">
+```
+
+The browser loads the image, fires the GET, attaches the cookie. No form. No JavaScript. Zero interaction beyond page load. This is why state-changing actions should never be accessible via GET.
+
+**Fetch with credentials** gives attackers more control:
+
+```js
+fetch('https://bank.com/transfer', {
+  method: 'POST',
+  credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ to: 'attacker', amount: 9000 }),
+})
+```
+
+The `credentials: 'include'` flag tells the browser to attach cookies on the cross-origin request. CORS will block the attacker from reading the response, but blocking the response is not the same as blocking the request. If the server processes state-changing actions without checking origin or a CSRF token, the transfer still happens — the attacker just cannot read the confirmation.
+
+## How to Fix It
+
+The fixes all share a common goal: give the server a way to verify that the request originated from your own page, not from another site.
+
+**Fix 1 — SameSite cookie attribute**
+
+The simplest modern defense. Set `SameSite=Strict` on your session cookie:
+
+```js
+setCookie(c, 'session', token, {
+  httpOnly: true,
+  secure:   true,
+  sameSite: 'Strict',
+})
+```
+
+With `Strict`, the browser will not attach the cookie on any cross-site request. The hidden form fires, but the session cookie does not go with it. The server receives an unauthenticated request and rejects it.
+
+`Lax` is a softer version: cookies are sent on top-level navigations (clicking a link to your site) but not on cross-site form submissions or subresource loads. It stops classic CSRF while allowing things like "click a link in an email and arrive logged in." `Strict` is safer but can break legitimate navigation patterns.
+
+`SameSite=Strict` alone stops the vast majority of CSRF. Use it as the foundation.
+
+**Fix 2 — CSRF token (synchronizer token pattern)**
+
+A server-generated secret, unique per session, embedded in every form and verified on every state-changing request:
+
+```js
+// Serve the page with a CSRF token embedded
+app.get('/dashboard', (c) => {
+  const token = crypto.randomUUID()
+  setCookie(c, 'csrf', token, { sameSite: 'Strict', httpOnly: false })
+  return c.html(`
+    <form action="/transfer" method="POST">
+      <input type="hidden" name="_csrf" value="${token}">
+      <input name="to" type="text">
+      <input name="amount" type="number">
+      <button type="submit">Transfer</button>
+    </form>
+  `)
+})
+
+// Verify the token on every state-changing request
+app.post('/transfer', async (c) => {
+  const { to, amount, _csrf } = await c.req.json()
+  const csrfCookie = getCookie(c, 'csrf')
+
+  if (!_csrf || _csrf !== csrfCookie)
+    return c.json({ error: 'invalid csrf token' }, 403)
+
+  await transferMoney(user.id, to, amount)
+})
+```
+
+The critical property: `evil.com` cannot read `bank.com`'s CSRF token. Same-origin policy blocks cross-site JavaScript from reading cookies or response bodies from other domains. The attacker can fire the request but cannot include the correct token. The server rejects it with a 403.
+
+For single-page applications that use fetch, the pattern shifts slightly. Store the token in a cookie readable by JavaScript (no `httpOnly`), read it in the client, and send it as a custom header:
+
+```js
+// Client
+const csrfToken = document.cookie
+  .split('; ')
+  .find(c => c.startsWith('csrf='))
+  ?.split('=')[1]
+
+fetch('/transfer', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-CSRF-Token': csrfToken,
+  },
+  body: JSON.stringify({ to, amount }),
+})
+
+// Server
+app.post('/transfer', async (c) => {
+  const tokenHeader = c.req.header('x-csrf-token')
+  const tokenCookie = getCookie(c, 'csrf')
+
+  if (!tokenHeader || tokenHeader !== tokenCookie)
+    return c.json({ error: 'invalid csrf token' }, 403)
+})
+```
+
+**Fix 3 — Check the Origin header**
+
+For most browsers, cross-site requests include an `Origin` header revealing where the request came from. Reject anything that is not your own domain:
+
+```js
+app.post('/transfer', async (c) => {
+  const origin = c.req.header('origin')
+
+  if (origin && origin !== 'https://bank.com')
+    return c.json({ error: 'forbidden origin' }, 403)
+
+  // proceed
+})
+```
+
+Use this as a complementary layer, not a standalone fix. Some requests do not include `Origin` (direct navigation, some browser configurations). Proxies can strip or alter `Referer`. This check adds defense in depth but is not watertight alone.
+
+**Fix 4 — Custom request header (for JSON APIs)**
+
+HTML forms cannot set custom headers. Only JavaScript can. If your API requires a specific custom header, a hidden form attack cannot satisfy it:
+
+```js
+// Client always sends this header
+fetch('/transfer', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
+  },
+  body: JSON.stringify({ to, amount }),
+})
+
+// Server checks for it
+app.post('/transfer', async (c) => {
+  if (!c.req.header('x-requested-with'))
+    return c.json({ error: 'missing header' }, 403)
+
+  // proceed
+})
+```
+
+A hidden form submission cannot include `X-Requested-With`. A cross-origin `fetch` that tries to set it triggers a CORS preflight — which `bank.com` would not permit for `evil.com`. Either way, the attack is blocked.
+
+## Defense in Depth
+
+These are not alternatives. Layer them:
+
+1. **`SameSite=Strict`** on the session cookie — stops most CSRF before any request logic runs, for free
+2. **CSRF token** — server-side verification that the request originated from your page
+3. **Origin header check** — reject cross-origin requests at the middleware level
+4. **Custom header** — blocks form-based attacks entirely for API endpoints
+5. **Never use GET for state-changing actions** — removes the `<img>` and link-click attack surface entirely
+
+The reason to use multiple layers is that no single defense is watertight in every context. `SameSite` is a browser-side control — it depends on browser behavior and cannot be enforced server-side. CSRF tokens require careful implementation to be effective. Origin checks can be absent on certain requests. Layering means an attacker must defeat independent mechanisms simultaneously.
+
+## The Deeper Point
+
+What makes CSRF feel different from other vulnerabilities is that the attack does not require a flaw in your code.
+
+The server works exactly as designed. The cookie works exactly as designed. The browser works exactly as designed. The vulnerability is in an assumption that held for a long time and then quietly stopped being true: that an authenticated request implies an intentional one.
+
+That assumption made sense in the early web, when requests were triggered by user navigation. It stopped making sense when the web became a platform where any page could silently initiate requests to any domain on behalf of whoever happened to be visiting.
+
+The CSRF token and `SameSite` cookie exist to restore what was lost: a signal the server can trust that says not just "this is Alice" but "Alice was on our page when she made this request."
+
+Authentication answers: who are you.
+
+That is not the same as: did you mean to do this.
